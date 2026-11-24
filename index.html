@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1014">
+  <meta name="description" content="A minimalist line-drawing puzzle. Trace the board and discover its hidden patterns.">
+  <title>TRACE / 09</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1014;
+      --panel: #131820;
+      --panel-2: #171e27;
+      --ink: #edf0eb;
+      --muted: #78818c;
+      --faint: #434c57;
+      --line: #39434f;
+      --lime: #d2f27a;
+      --pink: #e9b8df;
+      --orange: #f08a50;
+      --cyan: #54c9e8;
+      --danger: #d77d75;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(circle at 12% 8%, rgba(84,201,232,.055), transparent 28rem),
+        radial-gradient(circle at 88% 84%, rgba(210,242,122,.045), transparent 30rem),
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+      background-size: auto, auto, 44px 44px, 44px 44px;
+    }
+    button { color: inherit; font: inherit; }
+    .app-shell { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 32px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.1); padding-bottom:17px; }
+    .brand { display:flex; align-items:center; gap:11px; font: 700 11px/1 var(--mono); letter-spacing:.22em; color:#cbd2d8; }
+    .brand-symbol { width:23px; height:23px; display:grid; place-items:center; border:1px solid #72808d; transform:rotate(45deg); }
+    .brand-symbol::after { content:""; width:7px; height:7px; background:var(--lime); display:block; }
+    .top-meta { display:flex; align-items:center; gap:16px; color:var(--muted); font:10px var(--mono); letter-spacing:.18em; }
+    .info-button { width:27px; height:27px; border:1px solid #56616e; border-radius:50%; background:transparent; color:#b8c0c8; cursor:pointer; font:12px var(--mono); transition:.2s; }
+    .info-button:hover { border-color:var(--lime); color:var(--lime); }
+    .heading-row { display:flex; align-items:flex-end; justify-content:space-between; gap:18px; padding:30px 0 19px; }
+    .eyebrow { margin:0 0 8px; color:#89939f; font:10px var(--mono); letter-spacing:.23em; }
+    h1 { margin:0; font-size:clamp(28px, 4vw, 43px); line-height:1; font-weight:500; letter-spacing:.035em; }
+    h1 .accent { color:var(--lime); }
+    .phase-box { display:flex; align-items:center; gap:9px; padding:9px 12px; border:1px solid rgba(255,255,255,.12); color:#d6dbe0; font:10px var(--mono); letter-spacing:.16em; white-space:nowrap; }
+    .phase-box .sub { color:#7e8995; }
+    .board-panel { position:relative; background:linear-gradient(145deg, rgba(28,35,44,.97), rgba(18,23,30,.98)); border:1px solid rgba(255,255,255,.11); padding:12px; box-shadow:0 28px 70px rgba(0,0,0,.24); }
+    .board-panel::before, .board-panel::after { content:""; position:absolute; width:16px; height:16px; border-color:rgba(210,242,122,.45); pointer-events:none; }
+    .board-panel::before { left:-1px; top:-1px; border-left:2px solid; border-top:2px solid; }
+    .board-panel::after { right:-1px; bottom:-1px; border-right:2px solid; border-bottom:2px solid; }
+    .board-wrap { width:100%; position:relative; }
+    #board { display:block; width:100%; height:auto; aspect-ratio:5 / 3; touch-action:none; user-select:none; -webkit-user-select:none; cursor:crosshair; }
+    #board .base-line { stroke:var(--line); stroke-width:2.2; opacity:.82; }
+    #board .cell { fill:#1b222b; stroke:#313b46; stroke-width:1; }
+    #board .cell.orange-cell { fill:#30251f; stroke:#815438; }
+    #board .cell.pink-cell { fill:#302532; stroke:#73516e; }
+    #board .junction { fill:#78838e; opacity:.78; }
+    #board .outer-frame { fill:none; stroke:#596572; stroke-width:5; }
+    #board .blocked { stroke:#75818c; stroke-width:9; stroke-linecap:round; opacity:.9; }
+    #board .triangle { fill:var(--lime); }
+    #board .hex { fill:var(--cyan); stroke:#c2f5ff; stroke-width:1.1; }
+    #board .special-glyph { fill:none; stroke:var(--pink); stroke-width:3; stroke-linecap:square; stroke-linejoin:miter; opacity:.95; }
+    #board .route-shadow { fill:none; stroke:rgba(210,242,122,.15); stroke-width:15; stroke-linecap:round; stroke-linejoin:round; filter:blur(3px); pointer-events:none; }
+    #board .route-line { fill:none; stroke:var(--lime); stroke-width:6.5; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; filter:drop-shadow(0 0 5px rgba(210,242,122,.32)); }
+    #board .route-node { fill:var(--lime); stroke:#182019; stroke-width:2; pointer-events:none; }
+    #board .start-goal { fill:#eef1ec; stroke:#fff; stroke-width:1; }
+    #board .start-label { fill:#11161b; font:700 19px var(--mono); text-anchor:middle; dominant-baseline:central; }
+    #board .node-hit { fill:transparent; pointer-events:all; }
+    .board-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:9px 5px 1px; color:#76818d; font:9px var(--mono); letter-spacing:.18em; }
+    .board-footer .live-status { display:flex; align-items:center; gap:8px; color:#a2adb7; }
+    .live-dot { width:6px; height:6px; border-radius:50%; background:#59636e; display:inline-block; }
+    .live-dot.active { background:var(--lime); box-shadow:0 0 10px rgba(210,242,122,.7); }
+    .progress-section { display:flex; flex-direction:column; align-items:center; gap:11px; padding:23px 0 18px; }
+    .progress-label { color:#6e7884; font:9px var(--mono); letter-spacing:.25em; }
+    .indicators { display:flex; align-items:center; justify-content:center; gap:clamp(9px, 2.4vw, 21px); min-height:44px; }
+    .indicator { width:30px; height:30px; border-radius:50%; border:1px solid #606b76; background:rgba(255,255,255,.018); position:relative; transition:background .28s ease, border-color .28s ease, box-shadow .28s ease, transform .28s ease; }
+    .indicator::after { content:""; position:absolute; inset:8px; border-radius:50%; background:transparent; transition:background .28s; }
+    .indicator.on { border-color:var(--lime); background:rgba(210,242,122,.08); box-shadow:0 0 20px rgba(210,242,122,.11); transform:scale(1.04); }
+    .indicator.on::after { background:var(--lime); box-shadow:0 0 10px rgba(210,242,122,.55); }
+    .indicator.final.on { border-color:var(--pink); background:rgba(233,184,223,.09); box-shadow:0 0 20px rgba(233,184,223,.13); }
+    .indicator.final.on::after { background:var(--pink); box-shadow:0 0 10px rgba(233,184,223,.55); }
+    .actions { display:flex; align-items:center; justify-content:center; gap:10px; padding:5px 0 0; }
+    .action-button { min-width:112px; border:1px solid #46515d; background:transparent; padding:11px 17px; color:#aeb7c0; font:10px var(--mono); letter-spacing:.2em; cursor:pointer; transition:.2s; }
+    .action-button:hover:not(:disabled) { border-color:var(--lime); color:var(--lime); background:rgba(210,242,122,.04); }
+    .action-button.primary { border-color:#8b9c64; color:var(--lime); }
+    .action-button:disabled { opacity:.28; cursor:not-allowed; }
+    .footer-note { text-align:center; color:#4e5964; font:9px var(--mono); letter-spacing:.17em; padding-top:23px; }
+    .overlay { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; padding:22px; background:rgba(7,9,12,.82); backdrop-filter:blur(14px); opacity:1; visibility:visible; transition:opacity .3s, visibility .3s; }
+    .overlay.hidden { opacity:0; visibility:hidden; pointer-events:none; }
+    .modal { position:relative; width:min(510px, 100%); border:1px solid rgba(255,255,255,.16); background:linear-gradient(145deg, #1a222b, #11161c); padding:clamp(27px, 6vw, 48px); box-shadow:0 30px 90px rgba(0,0,0,.45); overflow:hidden; }
+    .modal::before { content:""; position:absolute; width:200px; height:200px; border:1px solid rgba(210,242,122,.22); border-radius:50%; right:-90px; top:-105px; box-shadow:0 0 0 25px rgba(210,242,122,.025), 0 0 0 50px rgba(210,242,122,.018); }
+    .modal-kicker { margin:0 0 19px; color:var(--lime); font:10px var(--mono); letter-spacing:.24em; }
+    .modal h2 { position:relative; margin:0 0 14px; font-size:clamp(29px, 7vw, 43px); font-weight:450; letter-spacing:.04em; line-height:1.1; }
+    .modal-copy { max-width:370px; margin:0; color:#9ba6b0; font-size:13px; line-height:1.9; }
+    .modal-rule { width:42px; height:2px; margin:26px 0 21px; background:var(--lime); }
+    .modal-button { min-width:160px; padding:13px 19px; border:1px solid var(--lime); background:var(--lime); color:#11160e; font:700 10px var(--mono); letter-spacing:.2em; cursor:pointer; transition:.2s; }
+    .modal-button:hover { background:#e4ff9a; transform:translateY(-2px); }
+    .modal-sub { display:block; margin-top:13px; color:#63707c; font:9px var(--mono); letter-spacing:.16em; }
+    .modal .close-x { position:absolute; top:13px; right:15px; border:0; background:none; color:#78848f; cursor:pointer; font-size:20px; }
+    .modal .close-x:hover { color:white; }
+    .modal[data-kind="second"] .modal-kicker { color:var(--cyan); }
+    .modal[data-kind="second"] .modal-rule { background:var(--cyan); }
+    .modal[data-kind="clear"] .modal-kicker { color:var(--pink); }
+    .modal[data-kind="clear"] .modal-rule { background:var(--pink); }
+    .modal[data-kind="clear"] .modal-button { border-color:var(--pink); background:var(--pink); }
+    .modal[data-kind="info"] .modal-button { min-width:120px; }
+    .shape-deco { position:absolute; left:24px; bottom:19px; width:26px; height:26px; border:1px solid rgba(233,184,223,.55); transform:rotate(45deg); }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+    @media (max-width:700px) {
+      .app-shell { width:calc(100% - 24px); padding-top:17px; }
+      .topbar { padding-bottom:13px; }
+      .top-meta { gap:9px; font-size:8px; letter-spacing:.11em; }
+      .brand { font-size:9px; letter-spacing:.16em; }
+      .brand-symbol { width:19px; height:19px; }
+      .heading-row { padding:23px 0 14px; }
+      .phase-box { padding:8px 9px; font-size:8px; gap:6px; }
+      .board-panel { padding:5px; }
+      .board-footer { padding:8px 4px 1px; font-size:7px; letter-spacing:.1em; }
+      .progress-section { padding:18px 0 14px; gap:9px; }
+      .indicator { width:25px; height:25px; }
+      .indicator::after { inset:7px; }
+      .actions { gap:7px; }
+      .action-button { min-width:95px; padding:10px 12px; font-size:9px; }
+      .footer-note { font-size:8px; padding-top:18px; }
+    }
+    @media (max-width:390px) {
+      .top-meta .meta-text { display:none; }
+      .indicator { width:22px; height:22px; }
+      .indicator::after { inset:6px; }
+      .indicators { gap:7px; }
+      .action-button { min-width:86px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; } }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-symbol" aria-hidden="true"></span><span>FIELD STUDY / 09</span></div>
+      <div class="top-meta"><span class="meta-text">INTERACTIVE LINE PUZZLE</span><button class="info-button" id="info-button" aria-label="操作方法">i</button></div>
+    </header>
+
+    <main>
+      <div class="heading-row">
+        <div><p class="eyebrow">A STUDY IN CONNECTIONS</p><h1>TRACE<span class="accent">.</span></h1></div>
+        <div class="phase-box"><span id="phase-name">TRACE 01</span><span class="sub" id="phase-total">/ 02</span></div>
+      </div>
+
+      <section class="board-panel" aria-label="パズル盤面">
+        <div class="board-wrap">
+          <svg id="board" viewBox="0 0 1000 600" role="application" aria-label="SからGまで線を引く盤面" xmlns="http://www.w3.org/2000/svg">
+            <g id="board-cells"></g>
+            <g id="board-grid"></g>
+            <g id="board-markers"></g>
+            <rect class="outer-frame" x="100" y="60" width="800" height="480" rx="7"></rect>
+            <g id="route-layer">
+              <polyline id="route-shadow" class="route-shadow" points=""></polyline>
+              <polyline id="route-line" class="route-line" points=""></polyline>
+              <g id="route-nodes"></g>
+            </g>
+            <g id="endpoint-layer"></g>
+            <g id="hit-layer"></g>
+          </svg>
+        </div>
+        <div class="board-footer">
+          <span class="live-status"><i class="live-dot" id="live-dot"></i><span id="live-status">AWAITING INPUT</span></span>
+          <span id="coordinate-status">10 × 06 / GRID</span>
+        </div>
+      </section>
+
+      <section class="progress-section" aria-label="達成状況">
+        <div class="progress-label" id="progress-label">SIGNAL INDICATORS</div>
+        <div class="indicators" id="indicators" aria-live="polite"></div>
+      </section>
+
+      <div class="actions">
+        <button class="action-button" id="undo-button" disabled>UNDO</button>
+        <button class="action-button primary" id="reset-button">RESET</button>
+      </div>
+    </main>
+    <footer class="footer-note">OBSERVE · TRACE · DISCOVER</footer>
+  </div>
+
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal" id="modal-card" data-kind="intro">
+      <p class="modal-kicker" id="modal-kicker">FIELD STUDY 09 / INITIALIZE</p>
+      <h2 id="modal-title">Find the<br>hidden line.</h2>
+      <p class="modal-copy" id="modal-copy">盤面をなぞり、すべてのインジケーターを点灯させてください。線は交点に沿って、一筆で引いていきます。</p>
+      <div class="modal-rule"></div>
+      <button class="modal-button" id="modal-action">START</button>
+      <span class="modal-sub" id="modal-sub">ONE BOARD · TWO TRACES</span>
+      <span class="shape-deco" aria-hidden="true"></span>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const COLS = 10;
+    const ROWS = 6;
+    const START = [0, 6];
+    const GOAL = [10, 0];
+    const CENTER = [5, 3];
+    const ORIGIN = { x: 100, y: 60 };
+    const STEP = 80;
+
+    const blockedEdges = [
+      [[9, 0], [9, 1]],
+      [[4, 5], [4, 6]],
+      [[9, 5], [9, 6]]
+    ];
+    const arrows = [
+      { from: [3, 0], to: [4, 0] },
+      { from: [1, 1], to: [0, 1] },
+      { from: [1, 5], to: [0, 5] },
+      { from: [3, 6], to: [4, 6] }
+    ];
+    const hexagons = [[5, 0], [2, 2], [6, 2], [5, 4]];
+    const orangeCells = [[1, 3], [7, 3]];
+    const orangeCorners = new Set();
+    orangeCells.forEach(([x, y]) => {
+      [[x,y], [x+1,y], [x,y+1], [x+1,y+1]].forEach(p => orangeCorners.add(nodeKey(p)));
+    });
+    const pinkCells = [[7, 1], [8, 1], [9, 1]];
+    const board = document.getElementById('board');
+    const cellsLayer = document.getElementById('board-cells');
+    const gridLayer = document.getElementById('board-grid');
+    const markersLayer = document.getElementById('board-markers');
+    const endpointLayer = document.getElementById('endpoint-layer');
+    const hitLayer = document.getElementById('hit-layer');
+    const routeLine = document.getElementById('route-line');
+    const routeShadow = document.getElementById('route-shadow');
+    const routeNodes = document.getElementById('route-nodes');
+    const indicators = document.getElementById('indicators');
+    const overlay = document.getElementById('overlay');
+    const modalCard = document.getElementById('modal-card');
+    const modalKicker = document.getElementById('modal-kicker');
+    const modalTitle = document.getElementById('modal-title');
+    const modalCopy = document.getElementById('modal-copy');
+    const modalAction = document.getElementById('modal-action');
+    const modalSub = document.getElementById('modal-sub');
+    const phaseName = document.getElementById('phase-name');
+    const liveStatus = document.getElementById('live-status');
+    const liveDot = document.getElementById('live-dot');
+    const undoButton = document.getElementById('undo-button');
+    const resetButton = document.getElementById('reset-button');
+
+    let stage = 1;
+    let path = [];
+    let drawing = false;
+    let firstPinkSeparated = null;
+    let finished = false;
+    let overlayMode = 'intro';
+
+    function nodeKey(p) { return `${p[0]},${p[1]}`; }
+    function edgeKey(a, b) {
+      const ka = nodeKey(a), kb = nodeKey(b);
+      return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+    }
+    function point(p) { return [ORIGIN.x + p[0] * STEP, ORIGIN.y + p[1] * STEP]; }
+    function rotate(p) { return [COLS - p[0], ROWS - p[1]]; }
+    function samePoint(a, b) { return a[0] === b[0] && a[1] === b[1]; }
+    function isAdjacent(a, b) { return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]) === 1; }
+
+    function svgEl(name, attrs = {}) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', name);
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, String(v)));
+      return el;
+    }
+
+    function drawBoard() {
+      // Cell fields
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const isOrange = orangeCells.some(([cx, cy]) => cx === x && cy === y);
+          const isPink = pinkCells.some(([cx, cy]) => cx === x && cy === y);
+          const cls = isOrange ? 'cell orange-cell' : isPink ? 'cell pink-cell' : 'cell';
+          cellsLayer.appendChild(svgEl('rect', {
+            x: ORIGIN.x + x*STEP + 10,
+            y: ORIGIN.y + y*STEP + 10,
+            width: 60, height: 60, rx: 2, class: cls
+          }));
+          if (isPink) {
+            const gx = ORIGIN.x + x*STEP + 25;
+            const gy = ORIGIN.y + y*STEP + 25;
+            const pathData = [
+              `M ${gx+14} ${gy} h -14 v 14`,
+              `M ${gx+34} ${gy+34} h 14 v -14`,
+              `M ${gx+14} ${gy+34} l 20 -20`
+            ].join(' ');
+            markersLayer.appendChild(svgEl('path', { d: pathData, class: 'special-glyph' }));
+          }
+        }
+      }
+      // Underlying orthogonal lattice
+      for (let x = 0; x <= COLS; x++) {
+        const [px] = point([x, 0]);
+        const [, y1] = point([0, 0]);
+        const [, y2] = point([0, ROWS]);
+        gridLayer.appendChild(svgEl('line', { x1:px, y1, x2:px, y2, class:'base-line' }));
+      }
+      for (let y = 0; y <= ROWS; y++) {
+        const [, py] = point([0, y]);
+        const [x1] = point([0, 0]);
+        const [x2] = point([COLS, 0]);
+        gridLayer.appendChild(svgEl('line', { x1, y1:py, x2, y2:py, class:'base-line' }));
+      }
+      // Lattice junctions
+      for (let y = 0; y <= ROWS; y++) {
+        for (let x = 0; x <= COLS; x++) {
+          const [cx, cy] = point([x, y]);
+          gridLayer.appendChild(svgEl('circle', { cx, cy, r:2.6, class:'junction' }));
+        }
+      }
+      // Closed corridors
+      blockedEdges.forEach(([a,b]) => {
+        const [x1,y1] = point(a), [x2,y2] = point(b);
+        markersLayer.appendChild(svgEl('line', { x1,y1,x2,y2, class:'blocked' }));
+      });
+      // Directional triangles
+      arrows.forEach(({from,to}) => {
+        const [x1,y1] = point(from), [x2,y2] = point(to);
+        const dx = x2-x1, dy = y2-y1;
+        const len = Math.hypot(dx,dy);
+        const ux = dx/len, uy = dy/len;
+        const px = -uy, py = ux;
+        const mx = (x1+x2)/2, my = (y1+y2)/2;
+        const tip = [mx+ux*13, my+uy*13];
+        const base = [mx-ux*9, my-uy*9];
+        const p1 = [base[0]+px*8, base[1]+py*8];
+        const p2 = [base[0]-px*8, base[1]-py*8];
+        markersLayer.appendChild(svgEl('polygon', { points:[tip,p1,p2].map(p=>p.join(',')).join(' '), class:'triangle' }));
+      });
+      // Hexagonal waypoints
+      hexagons.forEach(p => {
+        const [cx,cy] = point(p);
+        const vertices = Array.from({length:6}, (_,i) => {
+          const a = Math.PI/3*i - Math.PI/6;
+          return `${cx+11*Math.cos(a)},${cy+11*Math.sin(a)}`;
+        }).join(' ');
+        markersLayer.appendChild(svgEl('polygon', { points:vertices, class:'hex' }));
+      });
+      // Start and goal
+      [ {p:START, label:'S'}, {p:GOAL, label:'G'} ].forEach(({p,label}) => {
+        const [cx,cy] = point(p);
+        endpointLayer.appendChild(svgEl('circle', { cx, cy, r:23, class:'start-goal' }));
+        const t = svgEl('text', { x:cx, y:cy+1, class:'start-label' });
+        t.textContent = label;
+        endpointLayer.appendChild(t);
+      });
+      // Generous invisible touch targets keep the same node-based mechanic on touchscreens.
+      for (let y=0; y<=ROWS; y++) {
+        for (let x=0; x<=COLS; x++) {
+          const [cx,cy] = point([x,y]);
+          hitLayer.appendChild(svgEl('circle', { cx, cy, r:29, class:'node-hit' }));
+        }
+      }
+    }
+
+    function renderIndicators(values) {
+      indicators.innerHTML = '';
+      const count = stage === 1 ? 8 : 9;
+      for (let i=0; i<count; i++) {
+        const dot = document.createElement('span');
+        dot.className = 'indicator' + (i === 8 ? ' final' : '') + (values[i] ? ' on' : '');
+        dot.setAttribute('aria-label', `${i+1}番目 ${values[i] ? '達成' : '未達成'}`);
+        dot.setAttribute('role','img');
+        indicators.appendChild(dot);
+      }
+    }
+
+    function buildPathSet(route) {
+      return new Set(route.slice(1).map((p,i) => edgeKey(route[i], p)));
+    }
+
+    function ruleChecks(route) {
+      const hasStart = route.length > 0 && samePoint(route[0], START);
+      const complete = route.length > 1 && samePoint(route[route.length-1], GOAL);
+      const seen = new Set(route.map(nodeKey));
+      const simple = seen.size === route.length;
+      const adjacent = route.slice(1).every((p,i) => isAdjacent(route[i],p));
+      const oneStroke = hasStart && complete && simple && adjacent;
+      const pathEdges = buildPathSet(route);
+
+      const noGray = blockedEdges.every(([a,b]) => !pathEdges.has(edgeKey(a,b)));
+      const trianglesCorrect = route.slice(1).every((b,i) => {
+        const a = route[i];
+        const arrow = arrows.find(v => edgeKey(v.from,v.to) === edgeKey(a,b));
+        return !arrow || (samePoint(a,arrow.from) && samePoint(b,arrow.to));
+      });
+
+      let maxStraight = 0;
+      let currentStraight = 0;
+      let previousDirection = null;
+      route.slice(1).forEach((b,i) => {
+        const a = route[i];
+        const direction = `${b[0]-a[0]},${b[1]-a[1]}`;
+        currentStraight = direction === previousDirection ? currentStraight+1 : 1;
+        maxStraight = Math.max(maxStraight,currentStraight);
+        previousDirection = direction;
+      });
+      const straightLimit = maxStraight <= 3;
+
+      let orangeTurns = 0;
+      for (let i=1; i<route.length-1; i++) {
+        const a=route[i-1], b=route[i], c=route[i+1];
+        const d1=[b[0]-a[0],b[1]-a[1]];
+        const d2=[c[0]-b[0],c[1]-b[1]];
+        if (!samePoint(d1,d2) && orangeCorners.has(nodeKey(b))) orangeTurns++;
+      }
+      const orangeRule = orangeTurns === 3;
+
+      const hexIndices = [];
+      route.forEach((p,i) => { if (hexagons.some(h => samePoint(h,p))) hexIndices.push(i); });
+      const hexRule = hexIndices.length >= 2 && hexIndices.slice(1).every((v,i) => v-hexIndices[i] === 5);
+
+      const corners = [[0,0],[10,0],[0,6],[10,6]];
+      const allCorners = corners.every(corner => seen.has(nodeKey(corner)));
+
+      const pointSymmetry = complete && route.every((p,i) => {
+        const mirrored = rotate(route[route.length-1-i]);
+        return samePoint(p,mirrored);
+      });
+
+      return [oneStroke, noGray, trianglesCorrect, straightLimit, orangeRule, hexRule, allCorners, pointSymmetry];
+    }
+
+    function pinkIsSeparated(route) {
+      // A drawn path is treated as a wall between neighbouring cells.
+      const walls = buildPathSet(route);
+      const allCells = new Set();
+      for (let y=0; y<ROWS; y++) for (let x=0; x<COLS; x++) allCells.add(`${x},${y}`);
+      const region = new Map();
+      let regionId = 0;
+
+      function sharedWall(a,b) {
+        const [x,y] = a, [nx,ny] = b;
+        let edge;
+        if (nx === x+1) edge = [[x+1,y],[x+1,y+1]];
+        else if (nx === x-1) edge = [[x,y],[x,y+1]];
+        else if (ny === y+1) edge = [[x,y+1],[x+1,y+1]];
+        else edge = [[x,y],[x+1,y]];
+        return walls.has(edgeKey(edge[0],edge[1]));
+      }
+
+      while (allCells.size) {
+        const first = allCells.values().next().value;
+        allCells.delete(first);
+        const queue = [first];
+        region.set(first,regionId);
+        while (queue.length) {
+          const key = queue.shift();
+          const [x,y] = key.split(',').map(Number);
+          const neighbours = [[x+1,y],[x-1,y],[x,y+1],[x,y-1]];
+          for (const q of neighbours) {
+            if (q[0]<0 || q[0]>=COLS || q[1]<0 || q[1]>=ROWS) continue;
+            const qKey = nodeKey(q);
+            if (!allCells.has(qKey) || sharedWall([x,y],q)) continue;
+            allCells.delete(qKey);
+            region.set(qKey,regionId);
+            queue.push(qKey);
+          }
+        }
+        regionId++;
+      }
+      const ids = pinkCells.map(p => region.get(nodeKey(p)));
+      return new Set(ids).size > 1;
+    }
+
+    function nearestNode(evt) {
+      const rect = board.getBoundingClientRect();
+      const vx = (evt.clientX - rect.left) * 1000 / rect.width;
+      const vy = (evt.clientY - rect.top) * 600 / rect.height;
+      const x = Math.round((vx - ORIGIN.x) / STEP);
+      const y = Math.round((vy - ORIGIN.y) / STEP);
+      if (x<0 || x>COLS || y<0 || y>ROWS) return null;
+      const [px,py] = point([x,y]);
+      if (Math.hypot(vx-px,vy-py) > 34) return null;
+      return [x,y];
+    }
+
+    function appendNode(next) {
+      if (!next || finished || path.length === 0) return;
+      const last = path[path.length-1];
+      if (!isAdjacent(last,next)) return;
+      if (path.some(p => samePoint(p,next))) return;
+      path.push(next);
+      updateUI();
+      if (samePoint(next,GOAL)) {
+        drawing = false;
+        finished = true;
+        evaluateFinishedPath();
+      }
+    }
+
+    function updateRouteDrawing() {
+      const points = path.map(p => point(p).join(',')).join(' ');
+      routeLine.setAttribute('points',points);
+      routeShadow.setAttribute('points',points);
+      routeNodes.innerHTML = '';
+      path.slice(1,-1).forEach(p => {
+        const [cx,cy] = point(p);
+        routeNodes.appendChild(svgEl('circle',{cx,cy,r:5,class:'route-node'}));
+      });
+    }
+
+    function updateUI() {
+      updateRouteDrawing();
+      undoButton.disabled = path.length <= 1 || finished;
+      resetButton.disabled = path.length === 0;
+      const started = path.length > 0;
+      liveDot.classList.toggle('active',started);
+      if (!started) liveStatus.textContent = 'AWAITING INPUT';
+      else if (finished) liveStatus.textContent = 'TRACE COMPLETE';
+      else liveStatus.textContent = 'TRACE IN PROGRESS';
+
+      if (stage === 1) {
+        const checks = ruleChecks(path);
+        renderIndicators(checks);
+      } else {
+        const checks = ruleChecks(path);
+        const second = checks.every(Boolean) && path.length>1 && pinkIsSeparated(path) !== firstPinkSeparated;
+        renderIndicators([...Array(8).fill(true), second]);
+      }
+    }
+
+    function evaluateFinishedPath() {
+      const checks = ruleChecks(path);
+      const valid = checks.every(Boolean);
+      if (!valid) {
+        updateUI();
+        liveStatus.textContent = 'SIGNAL INCOMPLETE';
+        return;
+      }
+      const separated = pinkIsSeparated(path);
+      if (stage === 1) {
+        firstPinkSeparated = separated;
+        stage = 2;
+        path = [];
+        finished = false;
+        drawing = false;
+        phaseName.textContent = 'TRACE 02';
+        showModal('second');
+        updateUI();
+      } else if (separated !== firstPinkSeparated) {
+        renderIndicators([...Array(8).fill(true),true]);
+        liveStatus.textContent = 'ALL SIGNALS FOUND';
+        showModal('clear');
+      } else {
+        updateUI();
+        liveStatus.textContent = 'ANOTHER TRACE REQUIRED';
+      }
+    }
+
+    function startDrawing(evt) {
+      if (overlayMode !== null || finished) return;
+      const p = nearestNode(evt);
+      if (!p) return;
+      if (path.length === 0) {
+        if (!samePoint(p,START)) return;
+        path = [START.slice()];
+        drawing = true;
+        try { board.setPointerCapture(evt.pointerId); } catch (_) {}
+        updateUI();
+        evt.preventDefault();
+        return;
+      }
+      if (samePoint(p,path[path.length-1])) {
+        drawing = true;
+        try { board.setPointerCapture(evt.pointerId); } catch (_) {}
+        evt.preventDefault();
+      }
+    }
+
+    function moveDrawing(evt) {
+      if (!drawing || finished || path.length === 0) return;
+      const p = nearestNode(evt);
+      if (p) appendNode(p);
+      evt.preventDefault();
+    }
+
+    function stopDrawing() { drawing = false; }
+
+    function undo() {
+      if (finished || path.length <= 1) return;
+      path.pop();
+      updateUI();
+    }
+
+    function reset() {
+      path = [];
+      drawing = false;
+      finished = false;
+      updateUI();
+    }
+
+    function showModal(kind) {
+      overlayMode = kind;
+      overlay.classList.remove('hidden');
+      modalCard.dataset.kind = kind;
+      if (kind === 'intro') {
+        modalKicker.textContent = 'FIELD STUDY 09 / INITIALIZE';
+        modalTitle.innerHTML = 'Find the<br>hidden line.';
+        modalCopy.textContent = '盤面をなぞり、すべてのインジケーターを点灯させてください。線は交点に沿って、一筆で引いていきます。';
+        modalAction.textContent = 'START';
+        modalSub.textContent = 'ONE BOARD · TWO TRACES';
+      } else if (kind === 'second') {
+        modalKicker.textContent = 'SIGNAL ACCEPTED / 01';
+        modalTitle.innerHTML = 'One trace<br>found.';
+        modalCopy.textContent = '最初の線を確認しました。盤面には、もう一つの正しい線が残っています。';
+        modalAction.textContent = 'CONTINUE';
+        modalSub.textContent = 'A SECOND TRACE IS REQUIRED';
+      } else if (kind === 'clear') {
+        modalKicker.textContent = 'ALL SIGNALS FOUND / COMPLETE';
+        modalTitle.innerHTML = 'Well<br>traced.';
+        modalCopy.textContent = '二つの線を見つけました。この盤面のすべての信号が点灯しました。';
+        modalAction.textContent = 'PLAY AGAIN';
+        modalSub.textContent = 'FIELD STUDY 09 · CLEARED';
+      } else if (kind === 'info') {
+        modalKicker.textContent = 'HOW TO TRACE';
+        modalTitle.innerHTML = 'A single<br>continuous line.';
+        modalCopy.textContent = 'Sの交点からドラッグして線を引きます。線を戻すときはUNDO、最初からやり直すときはRESETを使ってください。タッチ操作にも対応しています。';
+        modalAction.textContent = 'GOT IT';
+        modalSub.textContent = 'NO OTHER INFORMATION IS PROVIDED';
+      }
+    }
+
+    function closeModal() {
+      overlay.classList.add('hidden');
+      overlayMode = null;
+    }
+
+    modalAction.addEventListener('click', () => {
+      if (overlayMode === 'intro') {
+        closeModal();
+      } else if (overlayMode === 'second') {
+        closeModal();
+      } else if (overlayMode === 'clear') {
+        stage = 1;
+        firstPinkSeparated = null;
+        phaseName.textContent = 'TRACE 01';
+        reset();
+        renderIndicators(Array(8).fill(false));
+        closeModal();
+      } else if (overlayMode === 'info') {
+        closeModal();
+      }
+    });
+    document.getElementById('info-button').addEventListener('click', () => showModal('info'));
+    undoButton.addEventListener('click',undo);
+    resetButton.addEventListener('click',reset);
+    board.addEventListener('pointerdown',startDrawing);
+    board.addEventListener('pointermove',moveDrawing);
+    board.addEventListener('pointerup',stopDrawing);
+    board.addEventListener('pointercancel',stopDrawing);
+    board.addEventListener('lostpointercapture',stopDrawing);
+    window.addEventListener('keydown',evt => {
+      if (evt.key === 'Escape' && overlayMode === 'info') closeModal();
+      if ((evt.key === 'Backspace' || evt.key === 'ArrowLeft') && overlayMode === null) { evt.preventDefault(); undo(); }
+      if (evt.key.toLowerCase() === 'r' && overlayMode === null) reset();
+    });
+
+    drawBoard();
+    renderIndicators(Array(8).fill(false));
+    updateUI();
+
+  })();
+  </script>
+</body>
+</html>
