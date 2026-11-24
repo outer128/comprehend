@@ -4,7 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4f3ef">
-  <title>Line Puzzle</title>
+  <meta name="description" content="COMPREHEND — a line-drawing puzzle.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="COMPREHEND">
+  <meta property="og:description" content="COMPREHEND — a line-drawing puzzle.">
+  <title>COMPREHEND</title>
   <style>
     :root {
       color-scheme: light;
@@ -68,6 +72,21 @@
       dominant-baseline: central;
       pointer-events: none;
     }
+    .credit {
+      margin: 13px 0 0;
+      color: #96918a;
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: .035em;
+    }
+    .credit a {
+      color: inherit;
+      text-decoration-line: underline;
+      text-decoration-style: dotted;
+      text-underline-offset: 3px;
+      transition: color .15s ease;
+    }
+    .credit a:hover { color: var(--text); }
     .controls {
       display: flex;
       flex-direction: column;
@@ -181,6 +200,7 @@
       cursor: pointer;
     }
     .clear-button:hover { color: var(--text); border-color: #625e57; }
+    .clear-actions { display: flex; align-items: center; gap: 12px; }
     @media (max-width: 600px) {
       body { padding: 18px 0; }
       .game { width: calc(100vw - 18px); }
@@ -213,11 +233,15 @@
       <div class="indicators" id="indicators" role="group" aria-label="条件の達成状況"></div>
       <button class="reset-button" id="reset" type="button">リセット</button>
     </div>
+    <p class="credit">created by <a href="https://x.com/outer_128" target="_blank" rel="noopener noreferrer">outer.</a></p>
   </main>
 
   <section class="clear-screen" id="clear-screen" hidden aria-live="polite">
-    <h1 class="clear-title">CLEAR</h1>
-    <button class="clear-button" id="play-again" type="button">もう一度</button>
+    <h1 class="clear-title">You comprehended.</h1>
+    <div class="clear-actions">
+      <button class="clear-button" id="post-result" type="button">ポストする</button>
+      <button class="clear-button" id="play-again" type="button">もう一度</button>
+    </div>
   </section>
 
   <script>
@@ -261,6 +285,7 @@
     const resetButton = document.getElementById('reset');
     const clearScreen = document.getElementById('clear-screen');
     const playAgainButton = document.getElementById('play-again');
+    const postResultButton = document.getElementById('post-result');
 
     let path = [];
     let indicatorState = Array(8).fill(false);
@@ -763,6 +788,11 @@
     board.addEventListener('contextmenu', event => event.preventDefault());
     resetButton.addEventListener('click', resetAttempt);
     playAgainButton.addEventListener('click', restartPuzzle);
+    postResultButton.addEventListener('click', () => {
+      const postText = 'パズル「COMPREHEND」を解き明かした！\n#COMPREHEND';
+      const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(postText)}`;
+      window.open(intentUrl, '_blank', 'noopener,noreferrer');
+    });
 
     drawBoard();
     renderIndicators();
